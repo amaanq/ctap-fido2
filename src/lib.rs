@@ -1,52 +1,28 @@
-//! `ctap-fido2` - A CTAP2 client for FIDO2 `hmac-secret` over USB HID.
+//! `ctap-fido2` is a CTAP2 client for FIDO2 `hmac-secret` over USB HID.
 //!
-//! Quick tour:
-//! - [`enumerate`] walks attached HID devices and returns the ones that
-//!   advertise the `hmac-secret` extension.
-//! - [`Authenticator`] is the opened, ready-to-use handle. It is constructed
-//!   via [`Authenticator::open`] from an enumerated [`DeviceInfo`].
-//! - [`Authenticator::make_credential`] creates a non-discoverable credential
-//!   bound to `hmac-secret`.
-//! - [`Authenticator::get_hmac_secret`] runs a `getAssertion` against an
-//!   existing credential and returns the 32-byte HMAC output.
-//! - All errors flow through [`Error`], which preserves CTAP status bytes as
-//!   typed variants.
+//! Typically, one might want to use the following:
+//! - [`device::list_devices`] to enumerate eligible authenticators.
+//! - [`device::DeviceInfo`] for the descriptor of each.
+//! - [`cmd::Authenticator::open`] to acquire an open handle.
+//! - [`cmd::Authenticator::make_credential`] and
+//!   [`cmd::Authenticator::get_hmac_secret`] for the headline operations.
+//! - [`error::Error`] / [`error::Result`] / [`error::CtapStatus`] for the typed
+//!   error tree.
+//!
+//! The following modules are also exposed:
+//! - [`cose`] — [`CredentialPublicKey`](`cose::CredentialPublicKey`) and
+//!   signature verification.
+//! - [`hid`] — [`Transport`](`hid::Transport`) for raw CTAPHID frames and
+//!   [`hid::Transport::vendor_command`] for vendor-specific probes.
+//! - [`pin`] — [`PinSession`](`pin::PinSession`) /
+//!   [`PinToken`](`pin::PinToken`) for callers building their own PIN-protected
+//!   commands on top of [`hid::Transport`].
+//! - [`cbor`] — CBOR helpers used by the command parsers.
 
 pub mod cbor;
 pub mod cmd;
 pub mod cose;
-pub mod enumerate;
+pub mod device;
 pub mod error;
 pub mod hid;
 pub mod pin;
-
-pub use crate::{
-   cmd::{
-      Algorithm,
-      Authenticator,
-      AuthenticatorInfo,
-      MakeCredentialOptions,
-      get_assertion::{
-         Assertion,
-         HmacSecretRequest,
-         HmacSecretResponse,
-         User,
-      },
-      make_credential::{
-         AttestationObject,
-         CredProtect,
-         Credential,
-         CredentialExtensions,
-      },
-   },
-   cose::CredentialPublicKey,
-   enumerate::{
-      DeviceInfo,
-      list_devices,
-   },
-   error::{
-      CtapStatus,
-      Error,
-      Result,
-   },
-};

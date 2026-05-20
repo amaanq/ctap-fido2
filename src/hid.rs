@@ -50,8 +50,14 @@ const MAX_PAYLOAD: usize = INIT_FRAME_DATA + 128 * CONT_FRAME_DATA;
 
 /// Opened CTAP-HID transport ready to issue commands.
 pub struct Transport {
-   device: HidDevice,
-   cid:    [u8; 4],
+   device:           HidDevice,
+   cid:              [u8; 4],
+   firmware_version: (u8, u8, u8),
+}
+
+struct InitResponse {
+   cid:              [u8; 4],
+   firmware_version: (u8, u8, u8),
 }
 
 impl Transport {
@@ -69,15 +75,20 @@ impl Transport {
          .open_path(&cpath)
          .map_err(|err| Error::Hid(err.to_string()))?;
 
-      // No `set_blocking_mode(true)`: makes hidapi non-interruptible on
-      // Linux and swallows Ctrl-C. `read_timeout` works regardless.
-      let mut transport = Self {
+      let init = ctaphid_init(&device)?;
+      log::trace!("Transport::open ok cid={:02x?}", init.cid);
+      Ok(Self {
          device,
-         cid: BROADCAST_CID,
-      };
-      transport.cid = transport.allocate_channel()?;
-      log::trace!("Transport::open ok cid={:02x?}", transport.cid);
-      Ok(transport)
+         cid: init.cid,
+         firmware_version: init.firmware_version,
+      })
+   }
+
+   /// Firmware version reported in the `CTAPHID_INIT` response that ran
+   /// during [`Self::open`]. The tuple is presented as `(major, minor, build)`.
+   #[must_use]
+   pub const fn firmware_version(&self) -> (u8, u8, u8) {
+      self.firmware_version
    }
 
    /// Send a CBOR command, return the response body with the CTAP status
@@ -135,22 +146,30 @@ impl Transport {
       self.send_message(cmd::CTAPHID_CANCEL, &[])
    }
 
-   /// Run `CTAPHID_INIT` and parse the assigned CID.
-   fn allocate_channel(&self) -> Result<[u8; 4]> {
-      let mut nonce = [0_u8; 8];
-      rand::rng().fill_bytes(&mut nonce);
-      log::trace!("allocate_channel: sending INIT nonce={nonce:02x?}");
-
-      self.send_message(cmd::CTAPHID_INIT, &nonce)?;
-      let body = self.recv_message(cmd::CTAPHID_INIT, None)?;
-      log::trace!("allocate_channel: INIT body len={} ", body.len());
-      if body.len() < 17 {
-         return Err(Error::Parse("INIT response too short"));
+   /// Send a CTAPHID vendor command (`0xC0..=0xFF`) and return the raw
+   /// response body. The argument is the **wire byte** — i.e. the
+   /// init-frame command field with bit 7 already set. Yubico's logical
+   /// `CTAP_VENDOR_FIRST + N` is wire byte `0xC0 + N`; `SoloKey`'s
+   /// `SOLO_VERSION` (logical `0x53`) is wire byte `0xD3`; and so on.
+   ///
+   /// `KEEPALIVE` frames are drained automatically. The returned bytes
+   /// are whatever the device put in the response body — vendors define
+   /// their own framing inside.
+   ///
+   /// # Errors
+   ///
+   /// [`Error::Hid`] on transport failure, [`Error::Parse`] on a
+   /// malformed CTAPHID response, or an `Error::Parse("CTAPHID command
+   /// mismatch")`-equivalent if the device replies with a different
+   /// command byte than the caller asked for.
+   pub fn vendor_command(&self, command: u8, payload: &[u8]) -> Result<Vec<u8>> {
+      if command & 0x80 == 0 {
+         return Err(Error::Parse(
+            "vendor_command requires an init-frame command byte (bit 7 set)",
+         ));
       }
-      if body[0..8] != nonce {
-         return Err(Error::Parse("INIT response nonce mismatch"));
-      }
-      Ok([body[8], body[9], body[10], body[11]])
+      self.send_message(command, payload)?;
+      self.recv_message(command, None)
    }
 
    /// Fragment `payload` into one init frame and zero or more continuation
@@ -260,39 +279,89 @@ impl Transport {
    }
 
    fn write_frame(&self, frame: &[u8; REPORT_SIZE + 1]) -> Result<()> {
-      let written = self
-         .device
-         .write(frame)
-         .map_err(|err| Error::Hid(err.to_string()))?;
-      if written != frame.len() {
-         return Err(Error::Hid(format!(
-            "short HID write: {written} of {}",
-            frame.len()
-         )));
-      }
-      Ok(())
+      write_hid_frame(&self.device, frame)
    }
 
    fn read_frame(&self) -> Result<[u8; REPORT_SIZE]> {
-      log::trace!("read_frame: blocking on read_timeout");
-      let mut buf = [0_u8; REPORT_SIZE];
-      let read = self
-         .device
-         .read_timeout(
-            &mut buf,
-            i32::try_from(READ_TIMEOUT.as_millis()).unwrap_or(i32::MAX),
-         )
-         .map_err(|err| Error::Hid(err.to_string()))?;
-      log::trace!("read_frame: returned {read} bytes");
-      if read == 0 {
-         return Err(Error::Hid("HID read timed out".into()));
+      read_hid_frame(&self.device)
+   }
+}
+
+/// Raw HID write of one CTAPHID frame.
+fn write_hid_frame(device: &HidDevice, frame: &[u8; REPORT_SIZE + 1]) -> Result<()> {
+   let written = device
+      .write(frame)
+      .map_err(|err| Error::Hid(err.to_string()))?;
+   if written != frame.len() {
+      return Err(Error::Hid(format!(
+         "short HID write: {written} of {}",
+         frame.len()
+      )));
+   }
+   Ok(())
+}
+
+/// Raw HID read of one CTAPHID frame, with the standard read timeout.
+fn read_hid_frame(device: &HidDevice) -> Result<[u8; REPORT_SIZE]> {
+   log::trace!("read_hid_frame: blocking on read_timeout");
+   let mut buf = [0_u8; REPORT_SIZE];
+   let read = device
+      .read_timeout(
+         &mut buf,
+         i32::try_from(READ_TIMEOUT.as_millis()).unwrap_or(i32::MAX),
+      )
+      .map_err(|err| Error::Hid(err.to_string()))?;
+   log::trace!("read_hid_frame: returned {read} bytes");
+   if read == 0 {
+      return Err(Error::Hid("HID read timed out".into()));
+   }
+   if read != REPORT_SIZE {
+      return Err(Error::Hid(format!(
+         "short HID read: {read} of {REPORT_SIZE}"
+      )));
+   }
+   Ok(buf)
+}
+
+/// Run `CTAPHID_INIT` directly against a freshly opened `HidDevice`,
+/// without requiring a partially-built [`Transport`]. INIT request and
+/// response both fit in a single 64-byte report, so we don't need the
+/// full send/recv machinery here. Response layout: `nonce(8) | cid(4) |
+/// protocol(1) | major(1) | minor(1) | build(1) | capabilities(1)`.
+fn ctaphid_init(device: &HidDevice) -> Result<InitResponse> {
+   let mut nonce = [0_u8; 8];
+   rand::rng().fill_bytes(&mut nonce);
+   log::trace!("ctaphid_init: sending INIT nonce={nonce:02x?}");
+
+   let mut frame = [0_u8; REPORT_SIZE + 1];
+   frame[1..5].copy_from_slice(&BROADCAST_CID);
+   frame[5] = cmd::CTAPHID_INIT;
+   frame[6..8].copy_from_slice(&8_u16.to_be_bytes());
+   frame[8..16].copy_from_slice(&nonce);
+   write_hid_frame(device, &frame)?;
+
+   loop {
+      let resp = read_hid_frame(device)?;
+      if resp[0..4] != BROADCAST_CID {
+         continue;
       }
-      if read != REPORT_SIZE {
-         return Err(Error::Hid(format!(
-            "short HID read: {read} of {REPORT_SIZE}"
-         )));
+      if resp[4] != cmd::CTAPHID_INIT {
+         return Err(Error::Parse(
+            "unexpected CTAPHID command byte in INIT response",
+         ));
       }
-      Ok(buf)
+      let bcnt = u16::from_be_bytes([resp[5], resp[6]]) as usize;
+      if bcnt < 17 {
+         return Err(Error::Parse("INIT response too short"));
+      }
+      let body = &resp[7..7 + bcnt.min(REPORT_SIZE - 7)];
+      if body[0..8] != nonce {
+         return Err(Error::Parse("INIT response nonce mismatch"));
+      }
+      return Ok(InitResponse {
+         cid:              [body[8], body[9], body[10], body[11]],
+         firmware_version: (body[13], body[14], body[15]),
+      });
    }
 }
 
@@ -316,5 +385,11 @@ impl KeepAlive {
          0x02 => Self::UserPresenceNeeded,
          other => Self::Other(other),
       }
+   }
+}
+
+impl From<u8> for KeepAlive {
+   fn from(byte: u8) -> Self {
+      Self::from_byte(byte)
    }
 }

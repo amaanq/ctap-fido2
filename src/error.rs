@@ -105,6 +105,18 @@ impl CtapStatus {
    }
 }
 
+impl From<u8> for CtapStatus {
+   fn from(byte: u8) -> Self {
+      Self::from_byte(byte)
+   }
+}
+
+impl From<CtapStatus> for u8 {
+   fn from(status: CtapStatus) -> Self {
+      status.as_byte()
+   }
+}
+
 impl fmt::Display for CtapStatus {
    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
       write!(f, "CTAP status 0x{:02X}", self.as_byte())

@@ -3,9 +3,11 @@
 
 use ciborium::Value;
 use ctap_fido2::{
-   CtapStatus,
    cbor,
-   error::Error,
+   error::{
+      CtapStatus,
+      Error,
+   },
    hid::KeepAlive,
 };
 

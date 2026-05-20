@@ -15,7 +15,7 @@ use crate::{
          Credential,
       },
    },
-   enumerate::DeviceInfo,
+   device::DeviceInfo,
    error::Result,
    hid::Transport,
    pin::{
@@ -48,6 +48,12 @@ impl Algorithm {
          Self::Es256 => -7,
          Self::EdDsa => -8,
       }
+   }
+}
+
+impl From<Algorithm> for i32 {
+   fn from(alg: Algorithm) -> Self {
+      alg.cose_id()
    }
 }
 
@@ -188,7 +194,7 @@ pub struct Authenticator {
 
 impl Authenticator {
    /// Open a device returned by
-   /// [`list_devices`](crate::enumerate::list_devices). Runs `CTAPHID_INIT`
+   /// [`list_devices`](crate::device::list_devices). Runs `CTAPHID_INIT`
    /// to allocate a channel id.
    ///
    /// # Errors
@@ -201,6 +207,18 @@ impl Authenticator {
          transport,
          info: None,
       })
+   }
+
+   /// Borrow the underlying [`Transport`] for raw CTAPHID exchanges.
+   pub const fn transport_mut(&mut self) -> &mut Transport {
+      &mut self.transport
+   }
+
+   /// Firmware version reported in the `CTAPHID_INIT` response that ran
+   /// during [`Self::open`]. Tuple is `(major, minor, build)`.
+   #[must_use]
+   pub const fn firmware_version(&self) -> (u8, u8, u8) {
+      self.transport.firmware_version()
    }
 
    /// Cached `authenticatorGetInfo`, fetched on first call.

@@ -47,6 +47,12 @@ impl CredProtect {
    }
 }
 
+impl From<CredProtect> for u8 {
+   fn from(level: CredProtect) -> Self {
+      level.as_u8()
+   }
+}
+
 /// Raw attestation object from `makeCredential`.
 ///
 /// Format and statement shape vary by `fmt`. The crate does not verify, but

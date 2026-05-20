@@ -3,8 +3,8 @@
 
 use ciborium::Value;
 use ctap_fido2::{
-   CredentialPublicKey,
    cbor,
+   cose::CredentialPublicKey,
 };
 use ed25519_dalek::Signer as _;
 use p256::ecdsa::{
