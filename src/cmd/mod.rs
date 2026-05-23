@@ -320,6 +320,44 @@ impl Authenticator {
       )
    }
 
+   /// Silent (`up=false`) allow-list probe: returns the matching
+   /// credential id without touch, or [`None`] when the device has none
+   /// of the candidates. Callers follow up with a touch-requiring
+   /// assertion (e.g. [`Self::get_hmac_secret`]) to derive the secret.
+   ///
+   /// # Errors
+   ///
+   /// CTAP statuses other than `NoCredentials` propagate via
+   /// [`Error::Ctap`]. Older firmware rejects `up=false` outright;
+   /// callers should fall back to per-credential probing.
+   pub fn probe_credential(
+      &mut self,
+      rp_id: &str,
+      client_data_hash: &[u8; 32],
+      allow_list: &[&[u8]],
+   ) -> Result<Option<Vec<u8>>> {
+      use crate::{
+         cmd::get_assertion::AssertionOptions,
+         error::{
+            CtapStatus,
+            Error,
+         },
+      };
+      match get_assertion::call_with_options(
+         &mut self.transport,
+         rp_id,
+         client_data_hash,
+         allow_list,
+         None,
+         None,
+         AssertionOptions::SILENT,
+      ) {
+         Ok(assertion) => Ok(assertion.credential_id),
+         Err(Error::Ctap(CtapStatus::NoCredentials)) => Ok(None),
+         Err(other) => Err(other),
+      }
+   }
+
    /// Establish a PIN session for amortizing one ECDH across multiple commands.
    ///
    /// # Errors

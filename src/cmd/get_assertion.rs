@@ -82,6 +82,66 @@ pub fn call(
    extensions: Option<Value>,
    pin_token: Option<&PinToken>,
 ) -> Result<Assertion> {
+   call_with_options(
+      transport,
+      rp_id,
+      client_data_hash,
+      allow_list,
+      extensions,
+      pin_token,
+      AssertionOptions::DEFAULT,
+   )
+}
+
+/// CTAP2 `options` flags on `getAssertion`.
+#[derive(Clone, Copy, Debug)]
+pub struct AssertionOptions {
+   pub up: bool,
+   pub uv: bool,
+}
+
+impl AssertionOptions {
+   pub const DEFAULT: Self = Self {
+      up: true,
+      uv: false,
+   };
+   /// Silent allow-list probe: no touch, no UV.
+   pub const SILENT: Self = Self {
+      up: false,
+      uv: false,
+   };
+
+   fn to_cbor(self) -> Option<Value> {
+      // Omit the map when matching defaults; older firmware mis-handles
+      // an empty options map.
+      if self.up && !self.uv {
+         return None;
+      }
+      let mut entries = Vec::<(Value, Value)>::new();
+      if !self.up {
+         entries.push((Value::Text("up".into()), Value::Bool(false)));
+      }
+      if self.uv {
+         entries.push((Value::Text("uv".into()), Value::Bool(true)));
+      }
+      Some(Value::Map(entries))
+   }
+}
+
+/// Like [`call`] but with explicit CTAP2 `options`.
+///
+/// # Errors
+///
+/// Forwards from [`call`].
+pub fn call_with_options(
+   transport: &mut Transport,
+   rp_id: &str,
+   client_data_hash: &[u8; 32],
+   allow_list: &[&[u8]],
+   extensions: Option<Value>,
+   pin_token: Option<&PinToken>,
+   options: AssertionOptions,
+) -> Result<Assertion> {
    let mut request = vec![
       (Value::Integer(1.into()), Value::Text(rp_id.into())),
       (
@@ -103,6 +163,9 @@ pub fn call(
    }
    if let Some(ext) = extensions {
       request.push((Value::Integer(4.into()), ext));
+   }
+   if let Some(options_cbor) = options.to_cbor() {
+      request.push((Value::Integer(5.into()), options_cbor));
    }
    if let Some(token) = pin_token {
       let pin_auth_param = token.auth_param(client_data_hash);
@@ -145,7 +208,7 @@ pub(crate) fn parse_response(response: &[u8]) -> Result<Assertion> {
    };
    let user = parse_user(cbor::take_int_field(&mut entries, 0x04));
    let number_of_credentials = cbor::take_int_field(&mut entries, 0x05)
-      .and_then(|value| value.as_integer().map(Into::<i128>::into))
+      .and_then(|value| value.as_integer().map(i128::from))
       .and_then(|i| u32::try_from(i).ok());
 
    Ok(Assertion {
@@ -240,7 +303,7 @@ pub fn call_hmac_secret(
    // `saltEnc` is `AES-CBC(shared, salt1 || salt2)` when salt2 is present,
    // `AES-CBC(shared, salt1)` otherwise. The device replies with the same
    // shape under the same key.
-   let salt_plain: Vec<u8> = req.salt2.map_or_else(
+   let salt_plain = req.salt2.map_or_else(
       || req.salt.to_vec(),
       |salt2_bytes| {
          let mut buf = Vec::with_capacity(64);
