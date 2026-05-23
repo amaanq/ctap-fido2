@@ -329,7 +329,7 @@ impl Authenticator {
    ///
    /// CTAP statuses other than `NoCredentials` propagate via
    /// [`Error::Ctap`]. Older firmware rejects `up=false` outright;
-   /// callers should fall back to per-credential probing.
+   /// callers should fall back to [`Self::probe_credential_with_touch`].
    pub fn probe_credential(
       &mut self,
       rp_id: &str,
@@ -351,6 +351,37 @@ impl Authenticator {
          None,
          None,
          AssertionOptions::SILENT,
+      ) {
+         Ok(assertion) => Ok(assertion.credential_id),
+         Err(Error::Ctap(CtapStatus::NoCredentials)) => Ok(None),
+         Err(other) => Err(other),
+      }
+   }
+
+   /// Touch-requiring `up=true` allow-list probe. Fallback for
+   /// firmware that rejects [`Self::probe_credential`].
+   ///
+   /// # Errors
+   ///
+   /// CTAP statuses other than `NoCredentials` propagate via
+   /// [`Error::Ctap`].
+   pub fn probe_credential_with_touch(
+      &mut self,
+      rp_id: &str,
+      client_data_hash: &[u8; 32],
+      allow_list: &[&[u8]],
+   ) -> Result<Option<Vec<u8>>> {
+      use crate::error::{
+         CtapStatus,
+         Error,
+      };
+      match get_assertion::call(
+         &mut self.transport,
+         rp_id,
+         client_data_hash,
+         allow_list,
+         None,
+         None,
       ) {
          Ok(assertion) => Ok(assertion.credential_id),
          Err(Error::Ctap(CtapStatus::NoCredentials)) => Ok(None),
