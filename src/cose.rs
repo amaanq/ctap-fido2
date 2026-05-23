@@ -95,8 +95,8 @@ pub fn parse_authdata_pubkey(
    cursor
       .seek(SeekFrom::Start(offset as u64))
       .map_err(|err| Error::Cbor(err.to_string()))?;
-   let value: Value =
-      ciborium::from_reader(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
+   let value =
+      ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
    let consumed = usize::try_from(cursor.position())
       .map_err(|_| Error::Parse("cursor position out of usize range"))?;
    validate(&value)?;

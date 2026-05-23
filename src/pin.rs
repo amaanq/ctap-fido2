@@ -128,10 +128,10 @@ pub fn get_pin_retries(transport: &mut Transport) -> Result<u8> {
    let response = transport.transact(&payload, None)?;
    let map = cbor::decode(&response)?;
    // Field `0x03` carries the remaining-attempts integer.
-   let raw: i128 = cbor::get_int_field(&map, 3)
+   let raw = cbor::get_int_field(&map, 3)
       .and_then(Value::as_integer)
-      .ok_or(Error::Pin("getPinRetries response missing pinRetries"))?
-      .into();
+      .map(i128::from)
+      .ok_or(Error::Pin("getPinRetries response missing pinRetries"))?;
    u8::try_from(raw).map_err(|_| Error::Pin("getPinRetries value out of u8 range"))
 }
 
@@ -326,24 +326,24 @@ const COSE_CRV_P256: i128 = 1;
 /// Decode a `COSE_Key` map carrying a P-256 public key (used in
 /// `getKeyAgreement` responses).
 fn parse_cose_p256_pubkey(cose: &Value) -> Result<PublicKey> {
-   let kty: i128 = cbor::get_int_field(cose, 1)
+   let kty = cbor::get_int_field(cose, 1)
       .and_then(Value::as_integer)
-      .ok_or(Error::Pin("COSE key missing kty"))?
-      .into();
+      .map(i128::from)
+      .ok_or(Error::Pin("COSE key missing kty"))?;
    if kty != COSE_KTY_EC2 {
       return Err(Error::Pin("COSE key kty is not EC2"));
    }
-   let alg: i128 = cbor::get_int_field(cose, 3)
+   let alg = cbor::get_int_field(cose, 3)
       .and_then(Value::as_integer)
-      .ok_or(Error::Pin("COSE key missing alg"))?
-      .into();
+      .map(i128::from)
+      .ok_or(Error::Pin("COSE key missing alg"))?;
    if alg != COSE_ALG_ECDH_ES_HKDF_256 {
       return Err(Error::Pin("COSE key alg is not ECDH-ES+HKDF-256"));
    }
-   let crv: i128 = cbor::get_int_field(cose, -1)
+   let crv = cbor::get_int_field(cose, -1)
       .and_then(Value::as_integer)
-      .ok_or(Error::Pin("COSE key missing crv"))?
-      .into();
+      .map(i128::from)
+      .ok_or(Error::Pin("COSE key missing crv"))?;
    if crv != COSE_CRV_P256 {
       return Err(Error::Pin("COSE key crv is not P-256"));
    }

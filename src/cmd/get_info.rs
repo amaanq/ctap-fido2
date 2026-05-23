@@ -98,9 +98,9 @@ fn string_array(map: &Value, key: i128) -> Vec<String> {
 }
 
 fn u32_field(map: &Value, key: i128) -> Option<u32> {
-   let raw: i128 = cbor::get_int_field(map, key)
-      .and_then(Value::as_integer)?
-      .into();
+   let raw = cbor::get_int_field(map, key)
+      .and_then(Value::as_integer)
+      .map(i128::from)?;
    u32::try_from(raw).ok()
 }
 

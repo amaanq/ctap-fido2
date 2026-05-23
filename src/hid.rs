@@ -198,7 +198,7 @@ impl Transport {
       frame[8..8 + init_chunk.len()].copy_from_slice(init_chunk);
       self.write_frame(&frame)?;
 
-      let mut seq: u8 = 0;
+      let mut seq = 0_u8;
       while !rest.is_empty() {
          let (chunk, tail) = rest.split_at(rest.len().min(CONT_FRAME_DATA));
          rest = tail;
