@@ -2,7 +2,7 @@
 name         = "ctap-fido2"
 version      = "0.2.0"
 edition      = "2024"
-rust-version = "1.95.0"
+rust-version = "1.100.0"
 description  = "CTAP2 client for FIDO2 over USB HID with hmac-secret support."
 license      = "MIT"
 repository   = "https://github.com/amaanq/ctap-fido2"
