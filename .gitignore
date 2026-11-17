@@ -2,17 +2,17 @@
 
 !.cargo/
 !.cargo/**
+!.deny.toml
 !.editorconfig
 !.envrc
 !.github/
 !.github/**
 !.gitignore
 !.rustfmt.toml
-!.taplo.toml
+!.tombi.toml
 !Cargo.lock
 !Cargo.toml
 !LICENSE
-!deny.toml
 !README.md
 !flake.lock
 !flake.nix
