@@ -62,7 +62,6 @@
             version = "0.1.0";
 
             cargoLock.lockFile = ./Cargo.lock;
-            buildFeatures = [ "cli" ];
 
             inherit (ctx) nativeBuildInputs buildInputs;
 

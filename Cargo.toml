@@ -10,26 +10,16 @@ readme       = "README.md"
 keywords     = [ "ctap", "ctap2", "fido2", "hmac-secret", "webauthn" ]
 categories   = [ "authentication", "cryptography", "hardware-support" ]
 
-[features]
-cli = [ "dep:color-eyre", "dep:eyre", "dep:rustix" ]
-
-[[bin]]
-name              = "fido2-sign"
-required-features = [ "cli" ]
-
 [dependencies]
 aes           = "0.9.4"
 base64        = "0.23.1"
 ciborium      = "0.2.2"
-color-eyre    = { optional = true, version = "0.6.5" }
 ed25519-dalek = { default-features = false, version = "3.0.0" }
-eyre          = { optional = true, version = "0.6.14" }
 hidapi        = "2.6.7"
 hmac-sha256   = "1.1.15"
 log           = "0.4.35"
 p256          = { features = [ "ecdh", "ecdsa" ], version = "0.14.0" }
 rand          = "0.10.4"
-rustix        = { features = [ "process", "termios" ], optional = true, version = "1.1.6" }
 subtle        = "2.6.1"
 zeroize       = { features = [ "derive" ], version = "1.9.1" }
 
