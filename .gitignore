@@ -9,6 +9,8 @@
 !.github/**
 !.gitignore
 !.rustfmt.toml
+!.tack/
+!.tack/**
 !.tombi.toml
 !Cargo.lock
 !Cargo.toml

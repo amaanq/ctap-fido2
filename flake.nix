@@ -1,19 +1,11 @@
 {
   description = "CTAP2 client for FIDO2 hmac-secret over USB HID.";
 
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
-
   outputs =
-    inputs:
+    { self, ... }@args:
     let
+      inputs = (import ./.tack) { overrides = args.tackOverrides or { }; };
       inherit (inputs.nixpkgs) lib;
-      inherit (inputs) self;
       inherit (lib) genAttrs optionals;
 
       eachSystem =
@@ -130,7 +122,7 @@
             packages = [
               pkgs.nixfmt
               pkgs.pkg-config
-              pkgs.taplo
+              pkgs.tombi
               toolchain
             ]
             ++ optionals pkgs.stdenv.hostPlatform.isLinux [

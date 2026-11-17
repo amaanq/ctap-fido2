@@ -1,0 +1,22 @@
+{
+  "$declared": {
+    "fenix": "github:nix-community/fenix",
+    "nixpkgs": "github:nixos/nixpkgs/nixpkgs-unstable"
+  },
+  "fenix": {
+    "type": "github",
+    "owner": "nix-community",
+    "repo": "fenix",
+    "rev": "06f58b847412ea336ddf2f2a3fe716450b5c2505",
+    "narHash": "sha256-EVUNk6YE4fW5TIPtHiJe50c++nPkvL6il/1npq/nn44=",
+    "lastModified": 1794842451
+  },
+  "nixpkgs": {
+    "type": "github",
+    "owner": "nixos",
+    "repo": "nixpkgs",
+    "rev": "5d2b81a7a3be3e2f832879028e4d60abbf58e9a0",
+    "narHash": "sha256-3GnIGIy15bMduoS9RnWqKTmsJLWThla42UFtm0S7+us=",
+    "lastModified": 1794644783
+  }
+}
