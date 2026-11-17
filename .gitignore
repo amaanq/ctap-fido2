@@ -4,7 +4,7 @@
 !.cargo/**
 !.deny.toml
 !.editorconfig
-!.envrc
+!.cade
 !.github/
 !.github/**
 !.gitignore
