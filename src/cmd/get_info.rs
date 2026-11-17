@@ -37,7 +37,7 @@ fn parse(map: &Value) -> AuthenticatorInfo {
       .map_or_default(|entries| {
          entries
             .iter()
-            .filter_map(|&(ref key, ref value)| Some((key.as_text()?.to_owned(), value.as_bool()?)))
+            .filter_map(|(key, value)| Some((key.as_text()?.to_owned(), value.as_bool()?)))
             .collect()
       });
    let pin_protocols = cbor::get_int_field(map, 0x06)

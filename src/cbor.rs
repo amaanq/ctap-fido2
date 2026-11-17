@@ -45,13 +45,10 @@ pub fn decode(bytes: &[u8]) -> Result<Value> {
 /// [`u64`] keys.
 #[must_use]
 pub fn get_int_field(value: &Value, key: i128) -> Option<&Value> {
-   value
-      .as_map()?
-      .iter()
-      .find_map(|&(ref stored_key, ref stored_val)| {
-         let stored = Into::<i128>::into(stored_key.as_integer()?);
-         (stored == key).then_some(stored_val)
-      })
+   value.as_map()?.iter().find_map(|(stored_key, stored_val)| {
+      let stored = i128::from(stored_key.as_integer()?);
+      (stored == key).then_some(stored_val)
+   })
 }
 
 /// Look up a string-keyed map field. Used inside extension sub-maps where
@@ -61,9 +58,7 @@ pub fn get_text_field<'value>(value: &'value Value, key: &str) -> Option<&'value
    value
       .as_map()?
       .iter()
-      .find_map(|&(ref stored_key, ref stored_val)| {
-         (stored_key.as_text()? == key).then_some(stored_val)
-      })
+      .find_map(|(stored_key, stored_val)| (stored_key.as_text()? == key).then_some(stored_val))
 }
 
 /// Force a [`Value`] to bytes, returning a parse error if it isn't a byte
@@ -84,7 +79,7 @@ pub fn require_bytes<'value>(value: &'value Value, label: &'static str) -> Resul
 pub fn take_int_field(entries: &mut Vec<(Value, Value)>, key: i128) -> Option<Value> {
    let pos = entries
       .iter()
-      .position(|&(ref stored, _)| stored.as_integer().map(Into::<i128>::into) == Some(key))?;
+      .position(|(stored, _)| stored.as_integer().map(i128::from) == Some(key))?;
    Some(entries.swap_remove(pos).1)
 }
 
@@ -93,6 +88,6 @@ pub fn take_int_field(entries: &mut Vec<(Value, Value)>, key: i128) -> Option<Va
 pub fn take_text_field(entries: &mut Vec<(Value, Value)>, key: &str) -> Option<Value> {
    let pos = entries
       .iter()
-      .position(|&(ref stored, _)| stored.as_text() == Some(key))?;
+      .position(|(stored, _)| stored.as_text() == Some(key))?;
    Some(entries.swap_remove(pos).1)
 }

@@ -285,7 +285,7 @@ fn parse_extensions_echo(bytes: &[u8]) -> Result<CredentialExtensions> {
       return Ok(CredentialExtensions::default());
    };
    let mut out = CredentialExtensions::default();
-   for &(ref key, ref value) in &entries {
+   for (key, value) in &entries {
       let Some(name) = key.as_text() else { continue };
       match name {
          "credBlob" => out.cred_blob_set = value.as_bool().unwrap_or(false),

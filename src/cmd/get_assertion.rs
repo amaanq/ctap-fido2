@@ -354,7 +354,7 @@ pub fn call_hmac_secret(
       .ok_or(Error::MissingExtension("hmac-secret"))?;
    let cred_blob = if req.request_cred_blob {
       match cbor::get_text_field(&extensions, "credBlob") {
-         Some(&Value::Bytes(ref bytes)) => Some(bytes.clone()),
+         Some(Value::Bytes(bytes)) => Some(bytes.clone()),
          _ => None,
       }
    } else {

@@ -153,7 +153,7 @@ impl AuthenticatorInfo {
       self
          .options
          .iter()
-         .find_map(|&(ref stored_key, value)| (stored_key == id).then_some(value))
+         .find_map(|(stored_key, value)| (stored_key == id).then_some(*value))
    }
 
    /// True iff a client PIN is currently set on the device.
@@ -270,7 +270,7 @@ impl Authenticator {
    /// Whatever [`get_info::call`] propagates: [`Error::Ctap`],
    /// [`Error::Hid`], [`Error::Cbor`].
    pub fn info(&mut self) -> Result<&AuthenticatorInfo> {
-      if let Some(ref info) = self.info {
+      if let Some(info) = &self.info {
          return Ok(info);
       }
       let fresh = get_info::call(&mut self.transport)?;

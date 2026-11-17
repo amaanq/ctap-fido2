@@ -144,12 +144,12 @@ pub enum Error {
 
 impl fmt::Display for Error {
    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      match *self {
-         Self::Ctap(ref status) => write!(f, "{status}"),
+      match self {
+         Self::Ctap(status) => write!(f, "{status}"),
          Self::MissingExtension(name) => write!(f, "device omitted required extension: {name}"),
-         Self::Io(ref err) => write!(f, "hid io: {err}"),
-         Self::Hid(ref msg) => write!(f, "hidapi: {msg}"),
-         Self::Cbor(ref msg) => write!(f, "cbor: {msg}"),
+         Self::Io(err) => write!(f, "hid io: {err}"),
+         Self::Hid(msg) => write!(f, "hidapi: {msg}"),
+         Self::Cbor(msg) => write!(f, "cbor: {msg}"),
          Self::Pin(msg) => write!(f, "pin protocol: {msg}"),
          Self::Parse(msg) => write!(f, "parse: {msg}"),
       }
@@ -158,8 +158,8 @@ impl fmt::Display for Error {
 
 impl StdError for Error {
    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-      match *self {
-         Self::Io(ref err) => Some(err),
+      match self {
+         Self::Io(err) => Some(err),
          Self::Ctap(_)
          | Self::MissingExtension(_)
          | Self::Hid(_)
