@@ -160,7 +160,12 @@ impl StdError for Error {
    fn source(&self) -> Option<&(dyn StdError + 'static)> {
       match *self {
          Self::Io(ref err) => Some(err),
-         _ => None,
+         Self::Ctap(_)
+         | Self::MissingExtension(_)
+         | Self::Hid(_)
+         | Self::Cbor(_)
+         | Self::Pin(_)
+         | Self::Parse(_) => None,
       }
    }
 }
