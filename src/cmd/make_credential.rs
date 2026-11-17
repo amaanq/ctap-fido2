@@ -176,17 +176,14 @@ pub fn call(
       // CTAP2 makeCredential keys: 5=excludeList, 6=extensions, 7=options,
       // 8=pinUvAuthParam, 9=pinProtocol. Wrong-keyed extensions trip 0x11.
       (Value::Integer(6.into()), Value::Map(extensions)),
-      (
-         Value::Integer(7.into()),
-         Value::Map({
-            let mut options = vec![(Value::Text("uv".into()), Value::Bool(false))];
-            if opts.resident_key {
-               options.push((Value::Text("rk".into()), Value::Bool(true)));
-            }
-            options
-         }),
-      ),
    ];
+
+   if opts.resident_key {
+      request.push((
+         Value::Integer(7.into()),
+         Value::Map(vec![(Value::Text("rk".into()), Value::Bool(true))]),
+      ));
+   }
 
    if let Some(auth) = pin_auth {
       request.push((Value::Integer(8.into()), Value::Bytes(auth.to_vec())));
