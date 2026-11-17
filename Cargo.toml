@@ -1,6 +1,6 @@
 [package]
 name         = "ctap-fido2"
-version      = "0.1.4"
+version      = "0.2.0"
 edition      = "2024"
 rust-version = "1.95.0"
 description  = "CTAP2 client for FIDO2 over USB HID with hmac-secret support."
