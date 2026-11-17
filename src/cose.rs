@@ -91,8 +91,9 @@ pub fn parse_authdata_pubkey(
       SeekFrom,
    };
    let mut cursor = Cursor::new(auth_data);
+   let start = u64::try_from(offset).map_err(|_| Error::Parse("authData offset overflows u64"))?;
    cursor
-      .seek(SeekFrom::Start(offset as u64))
+      .seek(SeekFrom::Start(start))
       .map_err(|err| Error::Cbor(err.to_string()))?;
    let value =
       ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;

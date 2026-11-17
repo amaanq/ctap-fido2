@@ -36,7 +36,6 @@ restriction                      = { level = "warn", priority = -1 }
 
 arbitrary_source_item_ordering    = "allow"
 arithmetic_side_effects           = "allow"
-as_conversions                    = "allow"
 big_endian_bytes                  = "allow"
 default_numeric_fallback          = "allow"
 definition_in_module_root         = "allow"
@@ -76,5 +75,7 @@ wildcard_enum_match_arm           = "allow"
 unsafe_code = "forbid"
 
 [profile.release]
-strip = true
-lto   = "thin"
+opt-level     = 3
+strip         = "symbols"
+lto           = "thin"
+codegen-units = 1

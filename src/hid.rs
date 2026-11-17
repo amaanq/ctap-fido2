@@ -250,7 +250,7 @@ impl Transport {
             byte if byte == expected_cmd => {},
             _ => return Err(Error::Parse("unexpected CTAPHID command byte in response")),
          }
-         let bcnt = u16::from_be_bytes([frame[5], frame[6]]) as usize;
+         let bcnt = usize::from(u16::from_be_bytes([frame[5], frame[6]]));
          let mut body = Vec::<u8>::with_capacity(bcnt);
          let init_take = bcnt.min(INIT_FRAME_DATA);
          body.extend_from_slice(&frame[7..7 + init_take]);
@@ -350,7 +350,7 @@ fn ctaphid_init(device: &HidDevice) -> Result<InitResponse> {
             "unexpected CTAPHID command byte in INIT response",
          ));
       }
-      let bcnt = u16::from_be_bytes([resp[5], resp[6]]) as usize;
+      let bcnt = usize::from(u16::from_be_bytes([resp[5], resp[6]]));
       if bcnt < 17 {
          return Err(Error::Parse("INIT response too short"));
       }

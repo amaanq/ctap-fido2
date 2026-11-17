@@ -413,8 +413,10 @@ fn decode_extensions(auth_data: &[u8]) -> Result<Value> {
       if auth_data.len() < offset + ATTESTED_FIXED {
          return Err(Error::Parse("authData truncated in attested credential"));
       }
-      let cred_id_len =
-         u16::from_be_bytes([auth_data[offset + 16], auth_data[offset + 17]]) as usize;
+      let cred_id_len = usize::from(u16::from_be_bytes([
+         auth_data[offset + 16],
+         auth_data[offset + 17],
+      ]));
       offset = offset
          .checked_add(ATTESTED_FIXED)
          .and_then(|next| next.checked_add(cred_id_len))
@@ -425,8 +427,10 @@ fn decode_extensions(auth_data: &[u8]) -> Result<Value> {
       // Consume credPubKey via Cursor to advance past it. ciborium has
       // no "parse with remainder" helper.
       let mut cursor = Cursor::new(auth_data);
+      let start =
+         u64::try_from(offset).map_err(|_| Error::Parse("authData offset overflows u64"))?;
       cursor
-         .seek(SeekFrom::Start(offset as u64))
+         .seek(SeekFrom::Start(start))
          .map_err(|err| Error::Cbor(err.to_string()))?;
       ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
       offset = usize::try_from(cursor.position())

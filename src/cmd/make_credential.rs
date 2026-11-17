@@ -32,18 +32,22 @@ pub const COMMAND: u8 = 0x01;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CredProtect {
    /// UV optional. Default behavior when the extension is absent.
-   UvOptional         = 1,
+   UvOptional,
    /// UV optional with allow-list assertions; UV required when discovering
    /// resident credentials.
-   UvOptionalWithList = 2,
+   UvOptionalWithList,
    /// UV always required.
-   UvRequired         = 3,
+   UvRequired,
 }
 
 impl CredProtect {
    #[must_use]
    pub const fn as_u8(self) -> u8 {
-      self as u8
+      match self {
+         Self::UvOptional => 1,
+         Self::UvOptionalWithList => 2,
+         Self::UvRequired => 3,
+      }
    }
 }
 
@@ -255,7 +259,7 @@ fn parse_credential(
          "authData missing AT flag, no attested credential data",
       ));
    }
-   let cred_id_len = u16::from_be_bytes([auth_data[53], auth_data[54]]) as usize;
+   let cred_id_len = usize::from(u16::from_be_bytes([auth_data[53], auth_data[54]]));
    let id_start = 55_usize;
    let id_end = id_start
       .checked_add(cred_id_len)
