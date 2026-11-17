@@ -117,8 +117,8 @@ fn validate(value: &Value) -> Result<()> {
          if crv != COSE_CRV_P256 {
             return Err(Error::Pin("ES256 COSE key crv is not P-256"));
          }
-         require_bytes(value, -2, 32, "x")?;
-         require_bytes(value, -3, 32, "y")?;
+         require_bytes::<32>(value, -2, "x")?;
+         require_bytes::<32>(value, -3, "y")?;
          Ok(())
       },
       COSE_ALG_EDDSA => {
@@ -130,7 +130,7 @@ fn validate(value: &Value) -> Result<()> {
          if crv != COSE_CRV_ED25519 {
             return Err(Error::Pin("EdDSA COSE key crv is not Ed25519"));
          }
-         require_bytes(value, -2, 32, "x")?;
+         require_bytes::<32>(value, -2, "x")?;
          Ok(())
       },
       _ => Err(Error::Pin("unsupported COSE algorithm")),
@@ -138,12 +138,9 @@ fn validate(value: &Value) -> Result<()> {
 }
 
 fn verify_es256(value: &Value, message: &[u8], signature: &[u8]) -> Result<()> {
-   let x = require_bytes(value, -2, 32, "x")?;
-   let y = require_bytes(value, -3, 32, "y")?;
-   let (Ok(x), Ok(y)) = (x.try_into(), y.try_into()) else {
-      return Err(Error::Pin("ES256 pubkey coordinates are not 32 bytes"));
-   };
-   let encoded = Sec1Point::from_affine_coordinates(x, y, false);
+   let x = require_bytes::<32>(value, -2, "x")?;
+   let y = require_bytes::<32>(value, -3, "y")?;
+   let encoded = Sec1Point::from_affine_coordinates(&(*x).into(), &(*y).into(), false);
    let key = P256VerifyingKey::from_sec1_point(&encoded)
       .map_err(|_| Error::Pin("ES256 pubkey not on curve"))?;
    let sig = P256Signature::from_der(signature)
@@ -153,10 +150,8 @@ fn verify_es256(value: &Value, message: &[u8], signature: &[u8]) -> Result<()> {
 }
 
 fn verify_eddsa(value: &Value, message: &[u8], signature: &[u8]) -> Result<()> {
-   let x = require_bytes(value, -2, 32, "x")?;
-   let mut x_arr = [0_u8; 32];
-   x_arr.copy_from_slice(x);
-   let key = ed25519_dalek::VerifyingKey::from_bytes(&x_arr)
+   let x = require_bytes::<32>(value, -2, "x")?;
+   let key = ed25519_dalek::VerifyingKey::from_bytes(x)
       .map_err(|_| Error::Pin("Ed25519 pubkey is not a valid compressed point"))?;
    if signature.len() != 64 {
       return Err(Error::Pin("Ed25519 signature is not 64 bytes"));
@@ -175,17 +170,13 @@ fn cose_int(value: &Value, key: i128, label: &'static str) -> Result<i128> {
       .ok_or(Error::Pin(label))
 }
 
-fn require_bytes<'value>(
+fn require_bytes<'value, const LEN: usize>(
    value: &'value Value,
    key: i128,
-   len: usize,
    label: &'static str,
-) -> Result<&'value [u8]> {
-   let bytes = cbor::get_int_field(value, key)
+) -> Result<&'value [u8; LEN]> {
+   cbor::get_int_field(value, key)
       .and_then(Value::as_bytes)
-      .ok_or(Error::Pin(label))?;
-   if bytes.len() != len {
-      return Err(Error::Pin(label));
-   }
-   Ok(bytes)
+      .and_then(|bytes| bytes.as_slice().try_into().ok())
+      .ok_or(Error::Pin(label))
 }
