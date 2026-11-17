@@ -1,5 +1,10 @@
 //! Public-facing command API. Submodules carry the wire encoding/parsing.
 
+use std::sync::atomic::{
+   AtomicBool,
+   Ordering,
+};
+
 use ciborium::Value;
 use zeroize::ZeroizeOnDrop;
 
@@ -17,8 +22,15 @@ use crate::{
       },
    },
    device::DeviceInfo,
-   error::Result,
-   hid::Transport,
+   error::{
+      CtapStatus,
+      Error,
+      Result,
+   },
+   hid::{
+      KeepAlive,
+      Transport,
+   },
    pin::{
       self,
       PinSession,
@@ -57,6 +69,8 @@ impl From<Algorithm> for i32 {
       alg.cose_id()
    }
 }
+
+const SELECTION_COMMAND: u8 = 0x0B;
 
 /// Parsed `authenticatorGetInfo` response.
 ///
@@ -373,10 +387,6 @@ impl Authenticator {
       client_data_hash: &[u8; 32],
       allow_list: &[&[u8]],
    ) -> Result<Option<Vec<u8>>> {
-      use crate::error::{
-         CtapStatus,
-         Error,
-      };
       match get_assertion::call_with_options(
          &mut self.transport,
          rp_id,
@@ -405,10 +415,6 @@ impl Authenticator {
       client_data_hash: &[u8; 32],
       allow_list: &[&[u8]],
    ) -> Result<Option<Vec<u8>>> {
-      use crate::error::{
-         CtapStatus,
-         Error,
-      };
       match get_assertion::call(
          &mut self.transport,
          rp_id,
@@ -442,6 +448,29 @@ impl Authenticator {
    /// or [`PinBlocked`](crate::CtapStatus::PinBlocked).
    pub fn pin_token(&mut self, session: &PinSession, pin: &str) -> Result<PinToken> {
       session.get_pin_token(&mut self.transport, pin)
+   }
+
+   /// `authenticatorSelection` (CTAP 2.1, 0x0B): block until the user
+   /// touches this device. Returns `false` when `cancelled` is set first and
+   /// the device acknowledges the resulting `CTAPHID_CANCEL`, so several
+   /// devices can race for one touch.
+   ///
+   /// # Errors
+   ///
+   /// [`Error::Ctap`] on devices without CTAP 2.1, plus transport errors.
+   pub fn select(&self, cancelled: &AtomicBool) -> Result<bool> {
+      let transport = &self.transport;
+      let mut cancel_sent = false;
+      let mut on_keepalive = |_: KeepAlive| {
+         if !cancel_sent && cancelled.load(Ordering::Relaxed) {
+            cancel_sent = transport.cancel().is_ok();
+         }
+      };
+      match transport.transact(&[SELECTION_COMMAND], Some(&mut on_keepalive)) {
+         Ok(_) => Ok(true),
+         Err(Error::Ctap(CtapStatus::KeepaliveCancel)) => Ok(false),
+         Err(err) => Err(err),
+      }
    }
 
    /// Blink/buzz the device so the user can identify it. Optional per spec.

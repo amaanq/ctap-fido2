@@ -103,7 +103,7 @@ impl Transport {
    /// [`Error::Hid`] on transport failure, [`Error::Parse`] on a malformed
    /// frame.
    pub fn transact(
-      &mut self,
+      &self,
       payload: &[u8],
       on_keepalive: Option<&mut dyn FnMut(KeepAlive)>,
    ) -> Result<Vec<u8>> {
