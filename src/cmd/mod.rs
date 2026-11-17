@@ -186,12 +186,12 @@ impl AuthenticatorInfo {
 
 /// Options for [`Authenticator::make_credential`].
 #[derive(Clone, Debug)]
-pub struct MakeCredentialOptions<'a> {
+pub struct MakeCredentialOptions<'opts> {
    /// Algorithm to request.
    pub algorithm:      Algorithm,
    /// `None` disables UV too. UV-scoped hmac-secret outputs would break
    /// interop with the Go `age-plugin-fido2-hmac`.
-   pub pin:            Option<&'a str>,
+   pub pin:            Option<&'opts str>,
    /// Ask the device to create a resident (discoverable) credential.
    pub resident_key:   bool,
    /// `credProtect` policy level to apply to the credential. `None`
@@ -200,7 +200,7 @@ pub struct MakeCredentialOptions<'a> {
    /// Up to 32 bytes of arbitrary data to store on the device alongside
    /// the credential. Retrievable on every assertion without a second
    /// touch.
-   pub cred_blob:      Option<&'a [u8]>,
+   pub cred_blob:      Option<&'opts [u8]>,
    /// Request the per-credential large-blob key from the device. Returned
    /// in [`Credential::large_blob_key`] when the device supports the
    /// extension.

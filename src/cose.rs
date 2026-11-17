@@ -175,12 +175,12 @@ fn cose_int(value: &Value, key: i128, label: &'static str) -> Result<i128> {
       .ok_or(Error::Pin(label))
 }
 
-fn require_bytes<'a>(
-   value: &'a Value,
+fn require_bytes<'value>(
+   value: &'value Value,
    key: i128,
    len: usize,
    label: &'static str,
-) -> Result<&'a [u8]> {
+) -> Result<&'value [u8]> {
    let bytes = cbor::get_int_field(value, key)
       .and_then(Value::as_bytes)
       .ok_or(Error::Pin(label))?;

@@ -244,23 +244,23 @@ fn parse_user(value: Option<Value>) -> Option<User> {
 
 /// Inputs to [`call_hmac_secret`].
 #[derive(Clone, Copy, Debug)]
-pub struct HmacSecretRequest<'a> {
+pub struct HmacSecretRequest<'req> {
    /// Relying party id the credential was registered under.
-   pub rp_id:             &'a str,
+   pub rp_id:             &'req str,
    /// Per-call 32-byte client data hash. Random is fine.
-   pub client_data_hash:  &'a [u8; 32],
+   pub client_data_hash:  &'req [u8; 32],
    /// Credential id from [`make_credential`](crate::cmd::make_credential).
-   pub cred_id:           &'a [u8],
+   pub cred_id:           &'req [u8],
    /// First HMAC salt.
-   pub salt:              &'a [u8; 32],
+   pub salt:              &'req [u8; 32],
    /// Optional second salt. Some devices implement single-salt only and
    /// will be detected at response time.
-   pub salt2:             Option<&'a [u8; 32]>,
+   pub salt2:             Option<&'req [u8; 32]>,
    /// PIN, when the device requires one.
-   pub pin:               Option<&'a str>,
+   pub pin:               Option<&'req str>,
    /// Credential public key. When `Some`, the assertion signature is
    /// verified before the output is decrypted.
-   pub public_key:        Option<&'a CredentialPublicKey>,
+   pub public_key:        Option<&'req CredentialPublicKey>,
    /// Request the `credBlob` extension echo in the same assertion. The
    /// blob is whatever was stored at registration time via
    /// `MakeCredentialOptions::cred_blob`.

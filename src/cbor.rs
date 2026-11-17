@@ -57,7 +57,7 @@ pub fn get_int_field(value: &Value, key: i128) -> Option<&Value> {
 /// Look up a string-keyed map field. Used inside extension sub-maps where
 /// CTAP encodes extension identifiers as text strings.
 #[must_use]
-pub fn get_text_field<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
+pub fn get_text_field<'value>(value: &'value Value, key: &str) -> Option<&'value Value> {
    value
       .as_map()?
       .iter()
@@ -72,7 +72,7 @@ pub fn get_text_field<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
 /// # Errors
 ///
 /// [`Error::Parse`] carrying `label` if `value` isn't a byte string.
-pub fn require_bytes<'a>(value: &'a Value, label: &'static str) -> Result<&'a [u8]> {
+pub fn require_bytes<'value>(value: &'value Value, label: &'static str) -> Result<&'value [u8]> {
    value
       .as_bytes()
       .map(Vec::as_slice)
