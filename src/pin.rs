@@ -67,7 +67,7 @@ fn aes256_cbc_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Vec<u8> {
    let cipher = Aes256::new(&Array::from(*key));
    let mut out = Vec::<u8>::with_capacity(plaintext.len());
    let mut prev = [0_u8; AES_BLOCK];
-   for chunk in plaintext.chunks_exact(AES_BLOCK) {
+   for chunk in plaintext.as_chunks::<AES_BLOCK>().0 {
       let mut block = [0_u8; AES_BLOCK];
       for ((dst, lhs), rhs) in block.iter_mut().zip(chunk.iter()).zip(prev.iter()) {
          *dst = *lhs ^ *rhs;
@@ -90,9 +90,7 @@ fn aes256_cbc_decrypt(key: &[u8; 32], ciphertext: &[u8]) -> Vec<u8> {
    let cipher = Aes256::new(&Array::from(*key));
    let mut out = Vec::<u8>::with_capacity(ciphertext.len());
    let mut prev = [0_u8; AES_BLOCK];
-   for chunk in ciphertext.chunks_exact(AES_BLOCK) {
-      let mut in_block = [0_u8; AES_BLOCK];
-      in_block.copy_from_slice(chunk);
+   for &in_block in ciphertext.as_chunks::<AES_BLOCK>().0 {
       let mut arr = Array::from(in_block);
       cipher.decrypt_block(&mut arr);
       let decrypted: [u8; AES_BLOCK] = arr.into();

@@ -34,32 +34,29 @@ fn parse(map: &Value) -> AuthenticatorInfo {
    }
    let options = cbor::get_int_field(map, 0x04)
       .and_then(Value::as_map)
-      .map(|entries| {
+      .map_or_default(|entries| {
          entries
             .iter()
             .filter_map(|&(ref key, ref value)| Some((key.as_text()?.to_owned(), value.as_bool()?)))
             .collect()
-      })
-      .unwrap_or_default();
+      });
    let pin_protocols = cbor::get_int_field(map, 0x06)
       .and_then(Value::as_array)
-      .map(|arr| {
+      .map_or_default(|arr| {
          arr.iter()
             .filter_map(|item| item.as_integer().map(Into::<i128>::into))
             .filter_map(|i| u8::try_from(i).ok())
             .collect()
-      })
-      .unwrap_or_default();
+      });
    let algorithms = cbor::get_int_field(map, 0x0A)
       .and_then(Value::as_array)
-      .map(|arr| {
+      .map_or_default(|arr| {
          arr.iter()
             .filter_map(|item| cbor::get_text_field(item, "alg"))
             .filter_map(Value::as_integer)
             .filter_map(|i| i32::try_from(Into::<i128>::into(i)).ok())
             .collect()
-      })
-      .unwrap_or_default();
+      });
 
    AuthenticatorInfo {
       versions: string_array(map, 0x01),
@@ -89,12 +86,11 @@ fn parse(map: &Value) -> AuthenticatorInfo {
 fn string_array(map: &Value, key: i128) -> Vec<String> {
    cbor::get_int_field(map, key)
       .and_then(Value::as_array)
-      .map(|arr| {
+      .map_or_default(|arr| {
          arr.iter()
             .filter_map(|item| item.as_text().map(str::to_owned))
             .collect()
       })
-      .unwrap_or_default()
 }
 
 fn u32_field(map: &Value, key: i128) -> Option<u32> {
