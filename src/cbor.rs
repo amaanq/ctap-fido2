@@ -27,11 +27,7 @@ pub fn encode(value: &Value) -> Result<Vec<u8>> {
 /// [`Error::Cbor`] if the input is not a valid CBOR value or has trailing
 /// bytes.
 pub fn decode(bytes: &[u8]) -> Result<Value> {
-   let mut cursor = Cursor::new(bytes);
-   let value =
-      ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
-   let consumed = usize::try_from(cursor.position())
-      .map_err(|_| Error::Cbor("cursor position out of usize range".into()))?;
+   let (value, consumed) = decode_prefix(bytes)?;
    if consumed != bytes.len() {
       return Err(Error::Cbor(format!(
          "trailing bytes after CBOR value ({consumed}/{} consumed)",
@@ -39,6 +35,21 @@ pub fn decode(bytes: &[u8]) -> Result<Value> {
       )));
    }
    Ok(value)
+}
+
+/// Decode the CBOR value at the front of `bytes`, returning it with the
+/// number of bytes it occupied. Trailing bytes are left for the caller.
+///
+/// # Errors
+///
+/// [`Error::Cbor`] if the front of the input is not a valid CBOR value.
+pub fn decode_prefix(bytes: &[u8]) -> Result<(Value, usize)> {
+   let mut cursor = Cursor::new(bytes);
+   let value =
+      ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
+   let consumed = usize::try_from(cursor.position())
+      .map_err(|_| Error::Cbor("cursor position out of usize range".into()))?;
+   Ok((value, consumed))
 }
 
 /// Look up an integer-keyed map field. CTAP responses are CBOR maps with

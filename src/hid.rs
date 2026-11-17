@@ -195,7 +195,9 @@ impl Transport {
       frame[1..5].copy_from_slice(&self.cid);
       frame[5] = command;
       frame[6..8].copy_from_slice(&bcnt.to_be_bytes());
-      frame[8..8 + init_chunk.len()].copy_from_slice(init_chunk);
+      for (dst, src) in frame[8..].iter_mut().zip(init_chunk) {
+         *dst = *src;
+      }
       self.write_frame(&frame)?;
 
       let mut seq = 0_u8;
@@ -205,7 +207,9 @@ impl Transport {
          frame.fill(0);
          frame[1..5].copy_from_slice(&self.cid);
          frame[5] = seq & 0x7F;
-         frame[6..6 + chunk.len()].copy_from_slice(chunk);
+         for (dst, src) in frame[6..].iter_mut().zip(chunk) {
+            *dst = *src;
+         }
          self.write_frame(&frame)?;
          seq = seq.wrapping_add(1);
       }
@@ -252,8 +256,7 @@ impl Transport {
          }
          let bcnt = usize::from(u16::from_be_bytes([frame[5], frame[6]]));
          let mut body = Vec::<u8>::with_capacity(bcnt);
-         let init_take = bcnt.min(INIT_FRAME_DATA);
-         body.extend_from_slice(&frame[7..7 + init_take]);
+         body.extend(frame[7..].iter().take(bcnt));
 
          let mut seq = 0_u8;
          while body.len() < bcnt {
@@ -269,9 +272,8 @@ impl Transport {
             if cont[4] != seq {
                return Err(Error::Parse("CTAPHID continuation sequence skew"));
             }
-            let remaining = bcnt - body.len();
-            let take = remaining.min(CONT_FRAME_DATA);
-            body.extend_from_slice(&cont[5..5 + take]);
+            let remaining = bcnt.saturating_sub(body.len());
+            body.extend(cont[5..].iter().take(remaining));
             seq = seq.wrapping_add(1);
          }
          return Ok(body);
@@ -354,7 +356,7 @@ fn ctaphid_init(device: &HidDevice) -> Result<InitResponse> {
       if bcnt < 17 {
          return Err(Error::Parse("INIT response too short"));
       }
-      let body = &resp[7..7 + bcnt.min(REPORT_SIZE - 7)];
+      let [_, _, _, _, _, _, _, body @ ..] = resp;
       if body[0..8] != nonce {
          return Err(Error::Parse("INIT response nonce mismatch"));
       }

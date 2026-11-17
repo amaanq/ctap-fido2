@@ -2,12 +2,6 @@
 //!
 //! Spec: <https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-20210615.html#authenticatorGetAssertion>.
 
-use std::io::{
-   Cursor,
-   Seek as _,
-   SeekFrom,
-};
-
 use ciborium::Value;
 
 use crate::{
@@ -342,9 +336,7 @@ pub fn call_hmac_secret(
    )?;
 
    if let Some(pubkey) = req.public_key {
-      let mut signed = Vec::with_capacity(assertion.auth_data.len() + 32);
-      signed.extend_from_slice(&assertion.auth_data);
-      signed.extend_from_slice(req.client_data_hash);
+      let signed = [assertion.auth_data.as_slice(), req.client_data_hash].concat();
       pubkey.verify(&signed, &assertion.signature)?;
    }
 
@@ -362,26 +354,21 @@ pub fn call_hmac_secret(
    };
 
    let plaintext = session.aes_cbc_decrypt(hmac_blob)?;
-   let mut first = [0_u8; 32];
-   match plaintext.len() {
-      32 => {
+   match plaintext.as_chunks::<32>() {
+      ([first], []) => {
          if req.salt2.is_some() {
             return Err(Error::MissingExtension("hmac-secret salt2"));
          }
-         first.copy_from_slice(&plaintext);
          Ok(HmacSecretResponse {
-            secret: HmacSecret(first),
+            secret: HmacSecret(*first),
             secret2: None,
             cred_blob,
          })
       },
-      64 => {
-         first.copy_from_slice(&plaintext[..32]);
-         let mut second = [0_u8; 32];
-         second.copy_from_slice(&plaintext[32..]);
+      ([first, second], []) => {
          Ok(HmacSecretResponse {
-            secret: HmacSecret(first),
-            secret2: Some(HmacSecret(second)),
+            secret: HmacSecret(*first),
+            secret2: Some(HmacSecret(*second)),
             cred_blob,
          })
       },
@@ -401,40 +388,23 @@ pub fn call_hmac_secret(
 ///   [if ED (0x80)]: extensions(CBOR map)
 /// ```
 fn decode_extensions(auth_data: &[u8]) -> Result<Value> {
-   if auth_data.len() < AUTH_DATA_HEADER {
+   let Some((header, mut rest)) = auth_data.split_first_chunk::<AUTH_DATA_HEADER>() else {
       return Err(Error::Parse("authData truncated before flags"));
-   }
-   let flags = auth_data[32];
+   };
+   let flags = header[32];
    if flags & FLAG_ED == 0 {
       return Err(Error::MissingExtension("hmac-secret"));
    }
-   let mut offset = AUTH_DATA_HEADER;
    if flags & FLAG_AT != 0 {
-      if auth_data.len() < offset + ATTESTED_FIXED {
+      let Some((attested, after_attested)) = rest.split_first_chunk::<ATTESTED_FIXED>() else {
          return Err(Error::Parse("authData truncated in attested credential"));
-      }
-      let cred_id_len = usize::from(u16::from_be_bytes([
-         auth_data[offset + 16],
-         auth_data[offset + 17],
-      ]));
-      offset = offset
-         .checked_add(ATTESTED_FIXED)
-         .and_then(|next| next.checked_add(cred_id_len))
-         .ok_or(Error::Parse("credId length overflow in authData"))?;
-      if offset > auth_data.len() {
+      };
+      let cred_id_len = usize::from(u16::from_be_bytes([attested[16], attested[17]]));
+      let Some(pubkey_bytes) = after_attested.get(cred_id_len..) else {
          return Err(Error::Parse("credId length exceeds authData"));
-      }
-      // Consume credPubKey via Cursor to advance past it. ciborium has
-      // no "parse with remainder" helper.
-      let mut cursor = Cursor::new(auth_data);
-      let start =
-         u64::try_from(offset).map_err(|_| Error::Parse("authData offset overflows u64"))?;
-      cursor
-         .seek(SeekFrom::Start(start))
-         .map_err(|err| Error::Cbor(err.to_string()))?;
-      ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
-      offset = usize::try_from(cursor.position())
-         .map_err(|_| Error::Parse("cursor position out of usize range"))?;
+      };
+      let (_, pubkey_len) = cbor::decode_prefix(pubkey_bytes)?;
+      rest = pubkey_bytes.split_at(pubkey_len).1;
    }
-   cbor::decode(&auth_data[offset..])
+   cbor::decode(rest)
 }

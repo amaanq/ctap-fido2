@@ -74,35 +74,23 @@ impl CredentialPublicKey {
 
 /// Parse the credential public key out of a `WebAuthn` `authData` blob.
 ///
-/// Starts at `offset`  and returns the parsed key plus the new offset, which
-/// lands on the extensions blob if present.
+/// `bytes` starts at the key. Returns the parsed key plus the bytes after
+/// it, which hold the extensions blob if present.
 ///
 /// # Errors
 ///
 /// [`Error::Cbor`] on a malformed COSE value, [`Error::Pin`] on
 /// unsupported COSE metadata.
-pub fn parse_authdata_pubkey(
-   auth_data: &[u8],
-   offset: usize,
-) -> Result<(CredentialPublicKey, usize)> {
-   use std::io::{
-      Cursor,
-      Seek as _,
-      SeekFrom,
-   };
-   let mut cursor = Cursor::new(auth_data);
-   let start = u64::try_from(offset).map_err(|_| Error::Parse("authData offset overflows u64"))?;
-   cursor
-      .seek(SeekFrom::Start(start))
-      .map_err(|err| Error::Cbor(err.to_string()))?;
-   let value =
-      ciborium::from_reader::<Value, _>(&mut cursor).map_err(|err| Error::Cbor(err.to_string()))?;
-   let consumed = usize::try_from(cursor.position())
-      .map_err(|_| Error::Parse("cursor position out of usize range"))?;
+pub fn parse_authdata_pubkey(bytes: &[u8]) -> Result<(CredentialPublicKey, &[u8])> {
+   let (value, consumed) = cbor::decode_prefix(bytes)?;
    validate(&value)?;
-   let mut cose_bytes = Vec::with_capacity(consumed - offset);
-   cose_bytes.extend_from_slice(&auth_data[offset..consumed]);
-   Ok((CredentialPublicKey { cose_bytes }, consumed))
+   let (encoded, rest) = bytes.split_at(consumed);
+   Ok((
+      CredentialPublicKey {
+         cose_bytes: encoded.to_vec(),
+      },
+      rest,
+   ))
 }
 
 fn validate(value: &Value) -> Result<()> {

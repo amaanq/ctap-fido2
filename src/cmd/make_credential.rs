@@ -250,34 +250,29 @@ fn parse_response(response: &[u8]) -> Result<Credential> {
 fn parse_credential(
    auth_data: &[u8],
 ) -> Result<(Vec<u8>, CredentialPublicKey, CredentialExtensions)> {
-   if auth_data.len() < 32 + 1 + 4 + 16 + 2 {
+   let Some((header, rest)) = auth_data.split_first_chunk::<{ 32 + 1 + 4 + 16 + 2 }>() else {
       return Err(Error::Parse("authData too short for attested credential"));
-   }
-   let flags = auth_data[32];
+   };
+   let flags = header[32];
    if flags & 0x40 == 0 {
       return Err(Error::Parse(
          "authData missing AT flag, no attested credential data",
       ));
    }
-   let cred_id_len = usize::from(u16::from_be_bytes([auth_data[53], auth_data[54]]));
-   let id_start = 55_usize;
-   let id_end = id_start
-      .checked_add(cred_id_len)
-      .ok_or(Error::Parse("credential id length overflow"))?;
-   if id_end > auth_data.len() {
+   let cred_id_len = usize::from(u16::from_be_bytes([header[53], header[54]]));
+   let Some((id, after_id)) = rest.split_at_checked(cred_id_len) else {
       return Err(Error::Parse("credential id length exceeds authData"));
-   }
-   let id = auth_data[id_start..id_end].to_vec();
-   let (public_key, ext_offset) = cose::parse_authdata_pubkey(auth_data, id_end)?;
+   };
+   let (public_key, extensions_bytes) = cose::parse_authdata_pubkey(after_id)?;
 
    // Extensions echo lives after credPubKey, gated by the ED flag.
-   let extensions = if flags & 0x80 != 0 && ext_offset < auth_data.len() {
-      parse_extensions_echo(&auth_data[ext_offset..])?
+   let extensions = if flags & 0x80 != 0 && !extensions_bytes.is_empty() {
+      parse_extensions_echo(extensions_bytes)?
    } else {
       CredentialExtensions::default()
    };
 
-   Ok((id, public_key, extensions))
+   Ok((id.to_vec(), public_key, extensions))
 }
 
 fn parse_extensions_echo(bytes: &[u8]) -> Result<CredentialExtensions> {
