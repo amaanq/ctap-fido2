@@ -7,6 +7,7 @@ use crate::{
    cmd::{
       get_assertion::{
          Assertion,
+         AssertionOptions,
          HmacSecretRequest,
          HmacSecretResponse,
       },
@@ -104,20 +105,47 @@ pub struct AuthenticatorInfo {
    pub remaining_discoverable_credentials: Option<u32>,
 }
 
+/// `authenticatorGetInfo` option ids the crate reads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum InfoOption {
+   /// `clientPin`: a PIN is set.
+   ClientPin,
+   /// `uv`: built-in user verification, such as a fingerprint sensor, is
+   /// configured.
+   Uv,
+   /// `alwaysUv`: every operation requires user verification.
+   AlwaysUv,
+   /// `credMgmt`: credential management is supported.
+   CredMgmt,
+}
+
+impl InfoOption {
+   const fn id(self) -> &'static str {
+      match self {
+         Self::ClientPin => "clientPin",
+         Self::Uv => "uv",
+         Self::AlwaysUv => "alwaysUv",
+         Self::CredMgmt => "credMgmt",
+      }
+   }
+}
+
 impl AuthenticatorInfo {
-   /// Read a named option, returning `None` if the device didn't advertise it.
+   /// Read an option, returning `None` if the device didn't advertise it.
    #[must_use]
-   pub fn option(&self, name: &str) -> Option<bool> {
+   pub fn option(&self, option: InfoOption) -> Option<bool> {
+      let id = option.id();
       self
          .options
          .iter()
-         .find_map(|&(ref stored_key, value)| (stored_key == name).then_some(value))
+         .find_map(|&(ref stored_key, value)| (stored_key == id).then_some(value))
    }
 
    /// True iff a client PIN is currently set on the device.
    #[must_use]
    pub fn client_pin_set(&self) -> bool {
-      self.option("clientPin").unwrap_or(false)
+      self.option(InfoOption::ClientPin).unwrap_or(false)
    }
 
    /// True iff the device advertises the `hmac-secret` extension.
@@ -275,7 +303,16 @@ impl Authenticator {
    /// [`Error::MissingExtension`] when a salt2 was requested but the
    /// device returned a single-output response.
    pub fn get_hmac_secret(&mut self, req: &HmacSecretRequest<'_>) -> Result<HmacSecretResponse> {
-      get_assertion::call_hmac_secret(&mut self.transport, req)
+      // YubiKey Bio 5.8 with alwaysUv returns 0x27 to a PIN-less hmac-secret
+      // assertion that omits `uv`.
+      let info = self.info()?;
+      let options = AssertionOptions {
+         up: true,
+         uv: req.pin.is_none()
+            && info.option(InfoOption::AlwaysUv) == Some(true)
+            && info.option(InfoOption::Uv) == Some(true),
+      };
+      get_assertion::call_hmac_secret(&mut self.transport, req, options)
    }
 
    /// Fetch the next assertion in a multi-credential sequence. Call once
@@ -336,12 +373,9 @@ impl Authenticator {
       client_data_hash: &[u8; 32],
       allow_list: &[&[u8]],
    ) -> Result<Option<Vec<u8>>> {
-      use crate::{
-         cmd::get_assertion::AssertionOptions,
-         error::{
-            CtapStatus,
-            Error,
-         },
+      use crate::error::{
+         CtapStatus,
+         Error,
       };
       match get_assertion::call_with_options(
          &mut self.transport,

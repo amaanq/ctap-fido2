@@ -293,6 +293,7 @@ pub struct HmacSecretResponse {
 pub fn call_hmac_secret(
    transport: &mut Transport,
    req: &HmacSecretRequest<'_>,
+   options: AssertionOptions,
 ) -> Result<HmacSecretResponse> {
    let session = PinSession::establish(transport)?;
    let pin_token = match req.pin {
@@ -330,13 +331,14 @@ pub fn call_hmac_secret(
       extension_entries.push((Value::Text("credBlob".into()), Value::Bool(true)));
    }
 
-   let assertion = call(
+   let assertion = call_with_options(
       transport,
       req.rp_id,
       req.client_data_hash,
       &[req.cred_id],
       Some(Value::Map(extension_entries)),
       pin_token.as_ref(),
+      options,
    )?;
 
    if let Some(pubkey) = req.public_key {

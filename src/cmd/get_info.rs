@@ -107,6 +107,7 @@ fn u32_field(map: &Value, key: i128) -> Option<u32> {
 #[cfg(test)]
 mod tests {
    use super::*;
+   use crate::cmd::InfoOption;
 
    /// Verify our parser silently ignores unknown fieldsd rather than erroring
    /// on "unknown info".
@@ -165,7 +166,7 @@ mod tests {
          "thirdPartyPayment"
       ]);
       assert_eq!(info.aaguid, [0xEC; 16]);
-      assert_eq!(info.option("credMgmt"), Some(true));
+      assert_eq!(info.option(InfoOption::CredMgmt), Some(true));
       assert_eq!(info.max_msg_size, Some(3072));
       assert_eq!(info.pin_protocols, [2, 1]);
       assert!(info.supports_pin_protocol_v1());
