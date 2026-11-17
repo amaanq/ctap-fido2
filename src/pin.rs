@@ -17,16 +17,15 @@ use hmac_sha256::{
    Hash,
 };
 use p256::{
-   EncodedPoint,
    PublicKey,
+   Sec1Point,
    SecretKey,
    ecdh::diffie_hellman,
    elliptic_curve::{
-      generic_array::GenericArray,
-      rand_core::OsRng,
+      Generate as _,
       sec1::{
-         FromEncodedPoint as _,
-         ToEncodedPoint as _,
+         FromSec1Point as _,
+         ToSec1Point as _,
       },
    },
 };
@@ -154,7 +153,7 @@ impl PinSession {
    /// [`Error::Pin`] if the authenticator's `COSE_Key` is missing or
    /// malformed, [`Error::Ctap`](crate::Error::Ctap) on transport failure.
    pub fn establish(transport: &mut Transport) -> Result<Self> {
-      let platform_secret = SecretKey::random(&mut OsRng);
+      let platform_secret = SecretKey::generate_from_rng(&mut rand::rng());
       let platform_pubkey = platform_secret.public_key();
 
       let request = Value::Map(vec![
@@ -353,22 +352,18 @@ fn parse_cose_p256_pubkey(cose: &Value) -> Result<PublicKey> {
    let y_field = cbor::get_int_field(cose, -3)
       .and_then(Value::as_bytes)
       .ok_or(Error::Pin("COSE key missing y coordinate"))?;
-   if x_field.len() != 32 || y_field.len() != 32 {
+   let (Ok(x), Ok(y)) = (x_field.as_slice().try_into(), y_field.as_slice().try_into()) else {
       return Err(Error::Pin("COSE key coordinates wrong length"));
-   }
-   let encoded = EncodedPoint::from_affine_coordinates(
-      GenericArray::from_slice(x_field),
-      GenericArray::from_slice(y_field),
-      false,
-   );
-   Option::<PublicKey>::from(PublicKey::from_encoded_point(&encoded))
+   };
+   let encoded = Sec1Point::from_affine_coordinates(x, y, false);
+   Option::<PublicKey>::from(PublicKey::from_sec1_point(&encoded))
       .ok_or(Error::Pin("authenticator pubkey is not on curve"))
 }
 
 /// Encode the platform's P-256 public key as a `COSE_Key` for inclusion
 /// in `clientPin` / extension request maps.
 fn encode_platform_cose_pubkey(pubkey: &PublicKey) -> Result<Value> {
-   let encoded = pubkey.to_encoded_point(false);
+   let encoded = pubkey.to_sec1_point(false);
    let x = encoded
       .x()
       .ok_or(Error::Pin("platform pubkey missing x"))?

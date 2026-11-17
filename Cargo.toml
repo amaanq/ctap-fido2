@@ -11,17 +11,17 @@ keywords     = [ "ctap", "ctap2", "fido2", "hmac-secret", "webauthn" ]
 categories   = [ "authentication", "cryptography", "hardware-support" ]
 
 [dependencies]
-aes           = "0.9.0"
-base64        = "0.22.1"
+aes           = "0.9.4"
+base64        = "0.23.1"
 ciborium      = "0.2.2"
-ed25519-dalek = { default-features = false, version = "2.2.0" }
-hidapi        = "2.6.6"
-hmac-sha256   = "1.1.14"
-log           = "0.4"
-p256          = { features = [ "ecdh", "ecdsa" ], version = "0.13.2" }
-rand          = "0.10.1"
+ed25519-dalek = { default-features = false, version = "3.0.0" }
+hidapi        = "2.6.7"
+hmac-sha256   = "1.1.15"
+log           = "0.4.35"
+p256          = { features = [ "ecdh", "ecdsa" ], version = "0.14.0" }
+rand          = "0.10.4"
 subtle        = "2.6.1"
-zeroize       = { features = [ "derive" ], version = "1.8.2" }
+zeroize       = { features = [ "derive" ], version = "1.9.1" }
 
 [dev-dependencies]
 hex = "0.4.3"

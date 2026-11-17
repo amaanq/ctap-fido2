@@ -11,8 +11,6 @@ use p256::ecdsa::{
    Signature as P256Signature,
    SigningKey as P256SigningKey,
 };
-#[expect(unused_imports, reason = "needed for to_encoded_point on VerifyingKey")]
-use p256::elliptic_curve::sec1::ToEncodedPoint as _;
 
 fn build_cose_es256(x: [u8; 32], y: [u8; 32]) -> Vec<u8> {
    let map = Value::Map(vec![
@@ -38,8 +36,8 @@ fn build_cose_eddsa(x: [u8; 32]) -> Vec<u8> {
 fn fresh_es256() -> (P256SigningKey, [u8; 32], [u8; 32]) {
    let mut seed = [0_u8; 32];
    seed[31] = 1;
-   let key = P256SigningKey::from_bytes(seed.as_slice().into()).unwrap();
-   let point = key.verifying_key().to_encoded_point(false);
+   let key = P256SigningKey::from_bytes((&seed).into()).unwrap();
+   let point = key.verifying_key().to_sec1_point(false);
    let mut x = [0_u8; 32];
    let mut y = [0_u8; 32];
    x.copy_from_slice(point.x().unwrap());

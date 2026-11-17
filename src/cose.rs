@@ -2,13 +2,12 @@
 
 use ciborium::Value;
 use p256::{
-   EncodedPoint,
+   Sec1Point,
    ecdsa::{
       Signature as P256Signature,
       VerifyingKey as P256VerifyingKey,
       signature::Verifier as _,
    },
-   elliptic_curve::generic_array::GenericArray,
 };
 
 use crate::{
@@ -140,12 +139,11 @@ fn validate(value: &Value) -> Result<()> {
 fn verify_es256(value: &Value, message: &[u8], signature: &[u8]) -> Result<()> {
    let x = require_bytes(value, -2, 32, "x")?;
    let y = require_bytes(value, -3, 32, "y")?;
-   let encoded = EncodedPoint::from_affine_coordinates(
-      GenericArray::from_slice(x),
-      GenericArray::from_slice(y),
-      false,
-   );
-   let key = P256VerifyingKey::from_encoded_point(&encoded)
+   let (Ok(x), Ok(y)) = (x.try_into(), y.try_into()) else {
+      return Err(Error::Pin("ES256 pubkey coordinates are not 32 bytes"));
+   };
+   let encoded = Sec1Point::from_affine_coordinates(x, y, false);
+   let key = P256VerifyingKey::from_sec1_point(&encoded)
       .map_err(|_| Error::Pin("ES256 pubkey not on curve"))?;
    let sig = P256Signature::from_der(signature)
       .map_err(|_| Error::Pin("ES256 signature is not valid DER"))?;
